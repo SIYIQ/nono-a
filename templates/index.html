@@ -1,0 +1,892 @@
+<!-- <!DOCTYPE html>#云书记版
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>私人聊天助手 (最终交互优化版)</title>
+    <style>
+        :root {
+            --user-bubble-bg: #007bff;
+            --assistant-bubble-bg: #e9e9eb;
+            --thinking-bg: #f8f9fa;
+            --thinking-border: #dee2e6;
+            --text-light: #fff;
+            --text-dark: #333;
+            --text-muted: #6c757d;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            margin: 0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            background-color: #f4f4f9;
+        }
+
+        /* --- 登录界面样式 --- */
+        #login-screen {
+            display: block; /* 默认显示登录界面 */
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 350px;
+        }
+        #login-screen h2 { margin-top: 0; color: #333; }
+        #login-screen p { color: #555; }
+        #login-screen input { width: 100%; box-sizing: border-box; padding: 12px; margin-top: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+        #login-screen button { width: 100%; padding: 12px; background-color: var(--user-bubble-bg); color: #fff; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; transition: background-color 0.2s; }
+        #login-screen button:hover { background-color: #0056b3; }
+        #login-error { color: #d9534f; margin-top: 15px; height: 1em; }
+
+        /* --- 聊天界面样式 --- */
+        #chat-container { 
+            display: none; /* 默认彻底隐藏 */
+            width: 90%; 
+            max-width: 800px; 
+            height: 90vh; 
+            background: #fff; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+            flex-direction: column; 
+            overflow: hidden;
+        }
+        
+        #settings-area { padding: 10px 15px; border-bottom: 1px solid #eee; background: #fcfcfc; }
+        #settings-area textarea { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; margin-bottom: 10px; font-size: 14px; }
+        #settings-wrapper { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        #settings-controls { display: flex; gap: 10px; }
+        #settings-controls button { padding: 8px 12px; background: #6c757d; color: var(--text-light); border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background-color 0.2s; }
+        #settings-controls button:hover { background: #5a6268; }
+        #thinking-toggle-container { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text-dark); }
+        #thinking-toggle-container input { cursor: pointer; }
+
+        #chat-box { flex: 1; padding: 20px; overflow-y: auto; }
+        .message { margin-bottom: 15px; display: flex; flex-direction: column; }
+        .message .content { max-width: 75%; padding: 10px 15px; border-radius: 18px; line-height: 1.5; white-space: pre-wrap; }
+        .user .content { background-color: var(--user-bubble-bg); color: var(--text-light); align-self: flex-end; border-bottom-right-radius: 4px; }
+        .assistant .content { background-color: var(--assistant-bubble-bg); color: var(--text-dark); align-self: flex-start; border-bottom-left-radius: 4px; }
+        
+        .thinking-process {
+            align-self: flex-start;
+            max-width: 75%;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            background-color: var(--thinking-bg);
+            border: 1px solid var(--thinking-border);
+        }
+        .thinking-process summary { padding: 8px 12px; font-weight: 500; color: #495057; cursor: pointer; outline: none; list-style: none; position: relative; }
+        .thinking-process summary::-webkit-details-marker { display: none; }
+        .thinking-process summary::before { content: '▶'; font-size: 0.8em; margin-right: 8px; display: inline-block; transition: transform 0.2s; }
+        .thinking-process[open] > summary::before { transform: rotate(90deg); }
+        .thinking-content-inner { padding: 0 12px 10px 12px; font-family: Menlo, Monaco, Consolas, "Courier New", monospace; font-size: 0.9em; color: var(--text-muted); white-space: pre-wrap; border-top: 1px solid var(--thinking-border); margin-top: 8px; }
+
+        #input-area { display: flex; padding: 15px; border-top: 1px solid #eee; }
+        #user-input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 20px; outline: none; font-size: 16px; }
+        #send-button { padding: 10px 20px; margin-left: 10px; background: var(--user-bubble-bg); color: var(--text-light); border: none; border-radius: 20px; cursor: pointer; font-size: 16px; transition: background-color 0.2s; }
+        #send-button:disabled { background: #aaa; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <div id="login-screen">
+        <h2>私人聊天助手</h2>
+        <p>请输入访问密码</p>
+        <input type="password" id="password-input" placeholder="Password">
+        <button id="login-button">进入</button>
+        <p id="login-error"></p>
+    </div>
+
+    <div id="chat-container">
+        <div id="settings-area">
+            <textarea id="system-prompt" rows="3" placeholder="在这里输入你的角色设定或系统提示词..."></textarea>
+            <div id="settings-wrapper">
+                <div id="settings-controls">
+                    <button id="save-button">保存对话</button>
+                    <button id="load-button">加载对话</button>
+                    <button id="new-chat-button">新的对话</button>
+                    <input type="file" id="file-input" accept=".json" style="display: none;">
+                </div>
+                <label id="thinking-toggle-container" for="thinking-toggle">
+                    <input type="checkbox" id="thinking-toggle" checked>
+                    <span>启用深度思考</span>
+                </label>
+            </div>
+        </div>
+        <div id="chat-box"></div>
+        <div id="input-area">
+            <input type="text" id="user-input" placeholder="在这里输入你的问题..." autocomplete="off">
+            <button id="send-button">发送</button>
+        </div>
+    </div>
+
+<script>
+    // --- 全局变量 ---
+    let validatedApiKey = null;
+    let conversationHistory = [];
+
+    // --- DOM 元素获取 ---
+    const loginScreen = document.getElementById('login-screen');
+    const chatContainer = document.getElementById('chat-container');
+    const passwordInput = document.getElementById('password-input');
+    const loginButton = document.getElementById('login-button');
+    const loginError = document.getElementById('login-error');
+    const chatBox = document.getElementById('chat-box');
+    const userInput = document.getElementById('user-input');
+    const sendButton = document.getElementById('send-button');
+    const systemPromptInput = document.getElementById('system-prompt');
+    const saveButton = document.getElementById('save-button');
+    const loadButton = document.getElementById('load-button');
+    const newChatButton = document.getElementById('new-chat-button');
+    const fileInput = document.getElementById('file-input');
+    const thinkingToggle = document.getElementById('thinking-toggle');
+
+    // --- 核心功能函数 ---
+
+    async function handleLogin() {
+        const password = passwordInput.value;
+        if (!password) { loginError.textContent = '密码不能为空'; return; }
+        loginError.textContent = '';
+        loginButton.disabled = true;
+        loginButton.textContent = '验证中...';
+
+        try {
+            const response = await fetch('/api/verify-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ api_key: password })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.valid) {
+                    validatedApiKey = password;
+                    loginScreen.style.display = 'none';
+                    chatContainer.style.display = 'flex';
+                    loadChatHistory();
+                } else {
+                    loginError.textContent = '密码错误';
+                }
+            } else {
+                loginError.textContent = '密码错误或服务器验证失败';
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            loginError.textContent = '无法连接到服务器';
+        } finally {
+            loginButton.disabled = false;
+            loginButton.textContent = '进入';
+        }
+    }
+
+    async function sendMessage() {
+        const messageText = userInput.value.trim();
+        if (messageText === '' || sendButton.disabled || !validatedApiKey) return;
+
+        if (conversationHistory.length === 0) {
+            const systemPromptText = systemPromptInput.value.trim();
+            if (systemPromptText) { conversationHistory.push({ role: 'system', content: systemPromptText }); }
+            systemPromptInput.disabled = true;
+        }
+        appendMessage('user', messageText);
+        conversationHistory.push({ role: 'user', content: messageText });
+        userInput.value = '';
+        sendButton.disabled = true;
+
+        // 【核心修正】在这里立即创建所有的占位符
+        const enableThinking = thinkingToggle.checked;
+        let detailsElement = null;
+        let thinkingContentContainer = null;
+        
+        if (enableThinking) {
+            detailsElement = document.createElement('details');
+            detailsElement.classList.add('thinking-process');
+            
+            const summaryElement = document.createElement('summary');
+            summaryElement.textContent = '模型思考过程';
+            
+            thinkingContentContainer = document.createElement('div');
+            thinkingContentContainer.classList.add('thinking-content-inner');
+            
+            detailsElement.appendChild(summaryElement);
+            detailsElement.appendChild(thinkingContentContainer);
+            
+            // 初始时先不显示，等收到第一条思考数据再显示
+            detailsElement.style.display = 'none';
+        }
+        
+        const assistantMessageDiv = appendMessage('assistant', '', true);
+
+        // 如果创建了思考过程的占位符，就把它插入到助手消息的前面
+        if (detailsElement) {
+            chatBox.insertBefore(detailsElement, assistantMessageDiv.parentElement);
+        }
+
+        let assistantContent = '';
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-API-KEY': validatedApiKey
+                },
+                body: JSON.stringify({
+                    message: messageText, 
+                    history: conversationHistory,
+                    enable_thinking: enableThinking
+                })
+            });
+
+            if (response.status === 401) { throw new Error('会话密钥已失效，请刷新页面重试'); }
+            if (!response.ok) { throw new Error(`HTTP 错误! 状态: ${response.status}`); }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                let boundary;
+                while ((boundary = buffer.indexOf('\n\n')) >= 0) {
+                    const message = buffer.slice(0, boundary);
+                    buffer = buffer.slice(boundary + 2);
+                    if (message.startsWith('data: ')) {
+                        const data = JSON.parse(message.slice(6));
+                        
+                        // 【核心修正】现在只是填充已经存在的占位符
+                        if (data.type === 'thinking' && data.content && detailsElement) {
+                            if (detailsElement.style.display === 'none') {
+                                detailsElement.style.display = 'block'; // 第一次收到数据时显示它
+                            }
+                            thinkingContentContainer.textContent += data.content;
+                        } 
+                        else if (data.type === 'start_answer') {
+                            assistantMessageDiv.querySelector('.blinking-cursor')?.remove();
+                        } 
+                        else if (data.type === 'answer' && data.content) {
+                            assistantContent += data.content;
+                            assistantMessageDiv.textContent = assistantContent;
+                        } 
+                        else if (data.type === 'end') {
+                            if (data.full_answer.trim() === '') {
+                                assistantMessageDiv.parentElement.remove();
+                            } else {
+                                conversationHistory.push({ role: 'assistant', content: data.full_answer });
+                            }
+                            saveToLocalStorage();
+                        } 
+                        else if (data.type === 'error') {
+                            throw new Error(data.content);
+                        }
+                        chatBox.scrollTop = chatBox.scrollHeight;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            assistantMessageDiv.textContent = `抱歉，出错了: ${error.message}`;
+            assistantMessageDiv.style.color = 'red';
+        } finally {
+            sendButton.disabled = false;
+            userInput.focus();
+        }
+    }
+
+    // --- 辅助函数 (无变化) ---
+
+    function appendMessage(role, content, isStreaming = false) {
+        const messageWrapper = document.createElement('div');
+        messageWrapper.classList.add('message', role);
+        const contentDiv = document.createElement('div');
+        contentDiv.classList.add('content');
+        if (isStreaming) {
+            contentDiv.innerHTML = '<span class="blinking-cursor">▍</span>';
+        } else {
+            contentDiv.textContent = content;
+        }
+        messageWrapper.appendChild(contentDiv);
+        chatBox.appendChild(messageWrapper);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        return contentDiv;
+    }
+
+    function renderHistory(history) {
+        chatBox.innerHTML = '';
+        systemPromptInput.value = '';
+        systemPromptInput.disabled = false;
+        let tempHistory = [];
+        history.forEach(message => {
+            if (message.role === 'system') {
+                systemPromptInput.value = message.content;
+                systemPromptInput.disabled = true;
+            } else {
+                appendMessage(message.role, message.content);
+                tempHistory.push(message);
+            }
+        });
+        if (tempHistory.length > 0) {
+            systemPromptInput.disabled = true;
+        }
+    }
+
+    function loadChatHistory() {
+        const savedHistory = localStorage.getItem('chatHistory');
+        if (savedHistory) {
+            conversationHistory = JSON.parse(savedHistory);
+            renderHistory(conversationHistory);
+        } else {
+            appendMessage('assistant', '你好！我是你的AI助手，有什么可以帮你的吗？');
+        }
+    }
+
+    function startNewChat() {
+        conversationHistory = [];
+        chatBox.innerHTML = '';
+        systemPromptInput.value = '';
+        systemPromptInput.disabled = false;
+        userInput.value = '';
+        userInput.focus();
+        localStorage.removeItem('chatHistory');
+        appendMessage('assistant', '你好！这是一个新的对话。');
+    }
+
+    function saveChatToFile() {
+        if (conversationHistory.length === 0) {
+            alert('对话为空，无需保存。');
+            return;
+        }
+        const blob = new Blob([JSON.stringify(conversationHistory, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chat_history_${new Date().toISOString()}.json`;
+        document.body.appendChild(a);
+a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function saveToLocalStorage() {
+        if (conversationHistory.length > 0) {
+            localStorage.setItem('chatHistory', JSON.stringify(conversationHistory));
+        }
+    }
+
+    // --- 事件绑定 (无变化) ---
+    loginButton.addEventListener('click', handleLogin);
+    passwordInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            handleLogin();
+        }
+    });
+
+    sendButton.addEventListener('click', sendMessage);
+    userInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            sendMessage();
+        }
+    });
+    
+    saveButton.addEventListener('click', saveChatToFile);
+    newChatButton.addEventListener('click', startNewChat);
+    loadButton.addEventListener('click', () => fileInput.click()); 
+    fileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const loadedHistory = JSON.parse(e.target.result);
+                if (Array.isArray(loadedHistory)) {
+                    conversationHistory = loadedHistory;
+                    renderHistory(conversationHistory);
+                    saveToLocalStorage();
+                } else {
+                    alert('文件格式不正确。');
+                }
+            } catch (error) {
+                alert('读取或解析文件时出错！');
+                console.error('File load error:', error);
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = ''; 
+    });
+</script>
+</body>
+</html> -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的 LLM 聊天助手 (最终版)</title>
+    <style>
+        :root {
+            --user-bubble-bg: #007bff;
+            --assistant-bubble-bg: #e9e9eb;
+            --thinking-bg: #f8f9fa;
+            --thinking-border: #dee2e6;
+            --text-light: #fff;
+            --text-dark: #333;
+            --text-muted: #6c757d;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            margin: 0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            background-color: #f4f4f9;
+        }
+
+        #chat-container { 
+            width: 90%; 
+            max-width: 800px; 
+            height: 90vh; 
+            background: #fff; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden;
+        }
+        
+        #settings-area { 
+            padding: 10px 15px; 
+            border-bottom: 1px solid #eee; 
+            background: #fcfcfc; 
+        }
+
+        #settings-area textarea { 
+            width: 100%; 
+            box-sizing: border-box; 
+            padding: 8px; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+            resize: vertical; 
+            margin-bottom: 10px; 
+            font-size: 14px; 
+        }
+
+        #settings-wrapper { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        #settings-controls { 
+            display: flex; 
+            gap: 10px; 
+        }
+
+        #settings-controls button { 
+            padding: 8px 12px; 
+            background: #6c757d; 
+            color: var(--text-light); 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 14px; 
+            transition: background-color 0.2s;
+        }
+
+        #settings-controls button:hover { 
+            background: #5a6268; 
+        }
+
+        #thinking-toggle-container { 
+            display: flex; 
+            align-items: center; 
+            gap: 5px; 
+            cursor: pointer; 
+            color: var(--text-dark); 
+        }
+
+        #thinking-toggle-container input { 
+            cursor: pointer; 
+        }
+
+        #chat-box { 
+            flex: 1; 
+            padding: 20px; 
+            overflow-y: auto; 
+        }
+
+        .message { 
+            margin-bottom: 15px; 
+            display: flex; 
+            flex-direction: column; 
+        }
+
+        .message .content { 
+            max-width: 75%; 
+            padding: 10px 15px; 
+            border-radius: 18px; 
+            line-height: 1.5; 
+            white-space: pre-wrap; 
+        }
+
+        .user .content { 
+            background-color: var(--user-bubble-bg); 
+            color: var(--text-light); 
+            align-self: flex-end; 
+            border-bottom-right-radius: 4px; 
+        }
+
+        .assistant .content { 
+            background-color: var(--assistant-bubble-bg); 
+            color: var(--text-dark); 
+            align-self: flex-start; 
+            border-bottom-left-radius: 4px; 
+        }
+        
+        .thinking-process {
+            align-self: flex-start;
+            max-width: 75%;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            background-color: var(--thinking-bg);
+            border: 1px solid var(--thinking-border);
+        }
+
+        .thinking-process summary {
+            padding: 8px 12px;
+            font-weight: 500;
+            color: #495057;
+            cursor: pointer;
+            outline: none;
+            list-style: none; /* 移除默认的三角箭头 */
+            position: relative;
+        }
+        
+        /* 自定义三角箭头 */
+        .thinking-process summary::-webkit-details-marker {
+            display: none;
+        }
+        .thinking-process summary::before {
+            content: '▶';
+            font-size: 0.8em;
+            margin-right: 8px;
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+        .thinking-process[open] > summary::before {
+            transform: rotate(90deg);
+        }
+
+        .thinking-content-inner {
+            padding: 0 12px 10px 12px;
+            font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+            font-size: 0.9em;
+            color: var(--text-muted);
+            white-space: pre-wrap;
+            border-top: 1px solid var(--thinking-border);
+            margin-top: 8px;
+        }
+
+        #input-area { 
+            display: flex; 
+            padding: 15px; 
+            border-top: 1px solid #eee; 
+        }
+
+        #user-input { 
+            flex: 1; 
+            padding: 10px; 
+            border: 1px solid #ccc; 
+            border-radius: 20px; 
+            outline: none; 
+            font-size: 16px; 
+        }
+
+        #send-button { 
+            padding: 10px 20px; 
+            margin-left: 10px; 
+            background: var(--user-bubble-bg); 
+            color: var(--text-light); 
+            border: none; 
+            border-radius: 20px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            transition: background-color 0.2s;
+        }
+
+        #send-button:disabled { 
+            background: #aaa; 
+            cursor: not-allowed; 
+        }
+    </style>
+</head>
+<body>
+
+<div id="chat-container">
+    <div id="settings-area">
+        <textarea id="system-prompt" rows="3" placeholder="在这里输入你的角色设定或系统提示词..."></textarea>
+        <div id="settings-wrapper">
+            <div id="settings-controls">
+                <button id="save-button">保存对话</button>
+                <button id="load-button">加载对话</button>
+                <button id="new-chat-button">新的对话</button>
+                <input type="file" id="file-input" accept=".json" style="display: none;">
+            </div>
+            <label id="thinking-toggle-container" for="thinking-toggle">
+                <input type="checkbox" id="thinking-toggle" checked>
+                <span>启用深度思考</span>
+            </label>
+        </div>
+    </div>
+
+    <div id="chat-box"></div>
+
+    <div id="input-area">
+        <input type="text" id="user-input" placeholder="在这里输入你的问题..." autocomplete="off">
+        <button id="send-button">发送</button>
+    </div>
+</div>
+
+<script>
+    const chatBox = document.getElementById('chat-box');
+    const userInput = document.getElementById('user-input');
+    const sendButton = document.getElementById('send-button');
+    const systemPromptInput = document.getElementById('system-prompt');
+    const saveButton = document.getElementById('save-button');
+    const loadButton = document.getElementById('load-button');
+    const newChatButton = document.getElementById('new-chat-button');
+    const fileInput = document.getElementById('file-input');
+    const thinkingToggle = document.getElementById('thinking-toggle');
+
+    let conversationHistory = [];
+
+    async function sendMessage() {
+        const messageText = userInput.value.trim();
+        if (messageText === '' || sendButton.disabled) return;
+
+        if (conversationHistory.length === 0) {
+            const systemPromptText = systemPromptInput.value.trim();
+            if (systemPromptText) {
+                conversationHistory.push({ role: 'system', content: systemPromptText });
+            }
+            systemPromptInput.disabled = true;
+        }
+
+        appendMessage('user', messageText);
+        conversationHistory.push({ role: 'user', content: messageText });
+        userInput.value = '';
+        sendButton.disabled = true;
+
+        let thinkingContentContainer = null;
+        const assistantMessageDiv = appendMessage('assistant', '', true); 
+        let assistantContent = '';
+
+        try {
+            const enableThinking = thinkingToggle.checked;
+
+            const response = await fetch('http://127.0.0.1:8000/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: messageText, 
+                    history: conversationHistory,
+                    enable_thinking: enableThinking
+                })
+            });
+
+            if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                let boundary;
+                while ((boundary = buffer.indexOf('\n\n')) >= 0) {
+                    const message = buffer.slice(0, boundary);
+                    buffer = buffer.slice(boundary + 2);
+
+                    if (message.startsWith('data: ')) {
+                        const data = JSON.parse(message.slice(6));
+                        
+                        if (data.type === 'thinking' && data.content) {
+                            if (!thinkingContentContainer) {
+                                const detailsElement = document.createElement('details');
+                                detailsElement.classList.add('thinking-process');
+                                
+                                const summaryElement = document.createElement('summary');
+                                summaryElement.textContent = '模型思考过程';
+                                
+                                thinkingContentContainer = document.createElement('div');
+                                thinkingContentContainer.classList.add('thinking-content-inner');
+                                
+                                detailsElement.appendChild(summaryElement);
+                                detailsElement.appendChild(thinkingContentContainer);
+                                
+                                // 插入到助手消息占位符之前
+                                chatBox.insertBefore(detailsElement, assistantMessageDiv.parentElement);
+                            }
+                            thinkingContentContainer.textContent += data.content;
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                        } 
+                        else if (data.type === 'start_answer') {
+                            assistantMessageDiv.querySelector('.blinking-cursor')?.remove();
+                        } 
+                        else if (data.type === 'answer' && data.content) {
+                            assistantContent += data.content;
+                            assistantMessageDiv.textContent = assistantContent;
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                        } 
+                        else if (data.type === 'end') {
+                            if (data.full_answer.trim() === '') {
+                                assistantMessageDiv.parentElement.remove();
+                            } else {
+                                conversationHistory.push({ role: 'assistant', content: data.full_answer });
+                            }
+                            saveToLocalStorage();
+                        } 
+                        else if (data.type === 'error') {
+                            throw new Error(data.content);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            assistantMessageDiv.textContent = `抱歉，出错了: ${error.message}`;
+            assistantMessageDiv.style.color = 'red';
+        } finally {
+            sendButton.disabled = false;
+            userInput.focus();
+        }
+    }
+
+    function appendMessage(role, content, isStreaming = false) {
+        const messageWrapper = document.createElement('div');
+        messageWrapper.classList.add('message', role);
+        const contentDiv = document.createElement('div');
+        contentDiv.classList.add('content');
+        if (isStreaming) {
+            contentDiv.innerHTML = '<span class="blinking-cursor">▍</span>';
+        } else {
+            contentDiv.textContent = content;
+        }
+        messageWrapper.appendChild(contentDiv);
+        chatBox.appendChild(messageWrapper);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        return contentDiv;
+    }
+
+    function renderHistory(history) {
+        chatBox.innerHTML = '';
+        systemPromptInput.value = '';
+        systemPromptInput.disabled = false;
+        let tempHistory = [];
+        history.forEach(message => {
+            if (message.role === 'system') {
+                systemPromptInput.value = message.content;
+                systemPromptInput.disabled = true;
+            } else {
+                appendMessage(message.role, message.content);
+                tempHistory.push(message);
+            }
+        });
+        if (tempHistory.length > 0) {
+             systemPromptInput.disabled = true;
+        }
+    }
+
+    function startNewChat() {
+        conversationHistory = [];
+        chatBox.innerHTML = '';
+        systemPromptInput.value = '';
+        systemPromptInput.disabled = false;
+        userInput.value = '';
+        userInput.focus();
+        localStorage.removeItem('chatHistory');
+        appendMessage('assistant', '你好！这是一个新的对话。你可以先设定一个角色，然后开始提问。');
+    }
+
+    function saveChatToFile() {
+        if (conversationHistory.length === 0) {
+            alert('对话为空，无需保存。');
+            return;
+        }
+        const blob = new Blob([JSON.stringify(conversationHistory, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chat_history_${new Date().toISOString()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function saveToLocalStorage() {
+        if (conversationHistory.length > 0) {
+            localStorage.setItem('chatHistory', JSON.stringify(conversationHistory));
+        }
+    }
+
+    function loadFromLocalStorage() {
+        const savedHistory = localStorage.getItem('chatHistory');
+        if (savedHistory) {
+            conversationHistory = JSON.parse(savedHistory);
+            renderHistory(conversationHistory);
+        } else {
+            appendMessage('assistant', '你好！我是你的AI助手，有什么可以帮你的吗？');
+        }
+    }
+
+    sendButton.addEventListener('click', sendMessage);
+    userInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            sendMessage();
+        }
+    });
+    
+    saveButton.addEventListener('click', saveChatToFile);
+    newChatButton.addEventListener('click', startNewChat);
+    loadButton.addEventListener('click', () => fileInput.click()); 
+    fileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const loadedHistory = JSON.parse(e.target.result);
+                if (Array.isArray(loadedHistory)) {
+                    conversationHistory = loadedHistory;
+                    renderHistory(conversationHistory);
+                    saveToLocalStorage();
+                } else {
+                    alert('文件格式不正确。');
+                }
+            } catch (error) {
+                alert('读取或解析文件时出错！');
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = ''; 
+    });
+    
+    window.addEventListener('load', loadFromLocalStorage);
+</script>
+</body>
+</html>
