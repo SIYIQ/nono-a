@@ -1,0 +1,90 @@
+:root {
+    --bg-light: #f8f9fa;
+    --bg-dark: #212529;
+    --border-color: #dee2e6;
+}
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+}
+
+body { 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--bg-light);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+}
+
+#chat-container { 
+    width: 100%;
+    max-width: 800px; 
+    height: 95vh;
+    max-height: 1000px;
+    display: flex;
+    flex-direction: column;
+    border: none;
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+}
+
+#settings-area {
+    background-color: #fff;
+    border-bottom: 1px solid var(--border-color);
+    border-top-left-radius: 0.75rem;
+    border-top-right-radius: 0.75rem;
+}
+
+#chat-box {
+    background-color: #f8f9fa;
+}
+
+.message .content {
+    padding: 0.75rem 1.25rem;
+    border-radius: 1.25rem;
+    line-height: 1.6;
+    max-width: 80%;
+    white-space: pre-wrap;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.user .content {
+    background-color: #0d6efd;
+    color: #fff;
+    border-bottom-right-radius: 0.25rem;
+}
+
+.assistant .content {
+    background-color: #fff;
+    color: #333;
+    border: 1px solid #e9ecef;
+    border-bottom-left-radius: 0.25rem;
+}
+
+.blinking-cursor {
+    animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+    from, to { opacity: 1 }
+    50% { opacity: 0 }
+}
+
+#input-area {
+    background-color: #fff;
+    border-top: 1px solid var(--border-color);
+}
+
+#user-input {
+    border-radius: 2rem;
+    background-color: #f1f3f5;
+    border: 1px solid #f1f3f5;
+    transition: border-color .2s, box-shadow .2s;
+}
+#user-input:focus {
+    background-color: #fff;
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13,110,253,.25);
+}
