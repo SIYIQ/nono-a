@@ -19,15 +19,12 @@ CORS(app)
 DB_FILE = "/Users/sunbai/galgame_unified.db"
 
 def init_db():
-    """Initializes the database and adds a 'provider' column."""
+    """Initializes the database and ensures the 'provider' column exists."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    # Check if 'provider' column exists
-    cursor.execute("PRAGMA table_info(conversations)")
-    columns = [column[1] for column in cursor.fetchall()]
-    if 'provider' not in columns:
-        cursor.execute("ALTER TABLE conversations ADD COLUMN provider TEXT")
 
+    # Step 1: Ensure the table exists.
+    # The CREATE statement now includes the 'provider' column for new databases.
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS conversations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,6 +40,13 @@ def init_db():
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    # Step 2: For older databases, check if the 'provider' column needs to be added.
+    cursor.execute("PRAGMA table_info(conversations)")
+    columns = [column[1] for column in cursor.fetchall()]
+    if 'provider' not in columns:
+        cursor.execute("ALTER TABLE conversations ADD COLUMN provider TEXT")
+
     conn.commit()
     conn.close()
 
